@@ -1,0 +1,267 @@
+{% extends "admin/function_page_base.html" %}
+
+
+
+{% block title %}Shop Image Generator{% endblock %}
+
+{% block content %}
+<form
+  method="post"
+  action="{% url 'main_processing' %}"
+  enctype="multipart/form-data"
+  autocomplete="off"
+>
+  {% csrf_token %}
+
+  <!-- ===== Section 1: Select Manufacturer Logo ===== -->
+  <div class="module" style="margin-bottom:40px;">
+    <h1 class="module__title" style="font-size:32px; font-weight:bold; color:#4e738d;">
+      Shop Image Generator
+    </h1>
+    <div class="form-row">
+      <label for="manufacturer_logo" style="font-size:18px; color:#ffffff;">
+        1. Select Manufacturer Logo
+      </label>
+      <select
+        id="manufacturer_logo"
+        name="manufacturer_dropdown"
+        required
+        aria-required="true"
+        style="margin-top:5px; font-size:16px; padding:8px; border-radius:4px;
+               width:100%; border:1px solid #ffffff;"
+      >
+        <option value="">-- Select a manufacturer --</option>
+        {% for m in manufacturers %}
+          <option value="{{ m.name }}">{{ m.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <!-- ===== Section 2: Upload CSV/XLSX Mapping ===== -->
+  <div class="module" style="margin-bottom:40px;">
+    <h2 class="module__subtitle" style="font-size:24px; font-weight:600; color:#ffffff;">
+      2. Upload CSV/XLSX Mapping File
+    </h2>
+    <p style="font-size:16px; color:#ffffff; margin-bottom:8px;">
+      Allowed formats: <code>.csv</code>, <code>.xlsx</code>.
+    </p>
+    <input
+      type="file"
+      name="mapping_csv"
+      accept=".csv,.xlsx"
+      required
+      aria-required="true"
+      style="font-size:16px; padding:10px; border-radius:4px;
+             width:100%; border:1px solid #ffffff;"
+    />
+  </div>
+
+  <!-- ===== Section 3: Upload Sample Product Image (optional) ===== -->
+  <div class="module" style="margin-bottom:40px;">
+    <h2 class="module__subtitle" style="font-size:24px; font-weight:600; color:#ffffff;">
+      3. Upload Sample Product Image (optional)
+    </h2>
+    <p style="font-size:16px; color:#ffffff; margin-bottom:8px;">
+      For preview only; will not be processed.
+    </p>
+    <input
+      type="file"
+      name="sample_prod_img"
+      accept="image/*"
+      style="font-size:16px; padding:10px; border-radius:4px;
+             width:100%; border:1px solid #ffffff;"
+    />
+  </div>
+
+  <!-- ===== Section 4: Configure Image Settings ===== -->
+  <div class="module" style="margin-bottom:40px;">
+    <h2 class="module__subtitle" style="font-size:24px; font-weight:600; color:#ffffff;">
+      4. Configure Image Settings
+    </h2>
+
+    <!-- Row A: Canvas & Logo Top -->
+    <div class="form-row" style="display:flex; flex-wrap:wrap; gap:20px; margin-top:20px;">
+      <div style="flex:1; min-width:250px;">
+        <label for="canvas_width" style="font-size:18px; color:#ffffff;">
+          Canvas Width (px)
+        </label>
+        <input
+          type="number"
+          id="canvas_width"
+          name="canvas_width"
+          required
+          aria-required="true"
+          min="1"
+          value="1000"
+          style="font-size:16px; padding:10px; border-radius:4px;
+                 width:100%; border:1px solid #ffffff;"
+        />
+      </div>
+      <div style="flex:1; min-width:250px;">
+        <label for="canvas_height" style="font-size:18px; color:#ffffff;">
+          Canvas Height (px)
+        </label>
+        <input
+          type="number"
+          id="canvas_height"
+          name="canvas_height"
+          required
+          aria-required="true"
+          min="1"
+          value="1000"
+          style="font-size:16px; padding:10px; border-radius:4px;
+                 width:100%; border:1px solid #ffffff;"
+        />
+      </div>
+      <div style="flex:1; min-width:250px;">
+        <label for="logo_top_margin" style="font-size:18px; color:#ffffff;">
+          Logo Top Margin (px)
+        </label>
+        <input
+          type="number"
+          id="logo_top_margin"
+          name="logo_top_margin"
+          required
+          aria-required="true"
+          min="1"
+          value="100"
+          style="font-size:16px; padding:10px; border-radius:4px;
+                 width:100%; border:1px solid #ffffff;"
+        />
+      </div>
+    </div>
+
+    <!-- Row B: Logo Right & Product Margins -->
+    <div class="form-row" style="display:flex; flex-wrap:wrap; gap:20px; margin-top:20px;">
+      <div style="flex:1; min-width:250px;">
+        <label for="logo_right_margin" style="font-size:18px; color:#ffffff;">
+          Logo Right Margin (px)
+        </label>
+        <input
+          type="number"
+          id="logo_right_margin"
+          name="logo_right_margin"
+          required
+          aria-required="true"
+          min="1"
+          value="100"
+          style="font-size:16px; padding:10px; border-radius:4px;
+                 width:100%; border:1px solid #ffffff;"
+        />
+      </div>
+      <div style="flex:1; min-width:250px;">
+        <label for="product_left_margin" style="font-size:18px; color:#ffffff;">
+          Product Left Margin (px)
+        </label>
+        <input
+          type="number"
+          id="product_left_margin"
+          name="product_left_margin"
+          required
+          aria-required="true"
+          min="1"
+          value="100"
+          style="font-size:16px; padding:10px; border-radius:4px;
+                 width:100%; border:1px solid #ffffff;"
+        />
+      </div>
+      <div style="flex:1; min-width:250px;">
+        <label for="product_bottom_margin" style="font-size:18px; color:#ffffff;">
+          Product Bottom Margin (px)
+        </label>
+        <input
+          type="number"
+          id="product_bottom_margin"
+          name="product_bottom_margin"
+          required
+          aria-required="true"
+          min="1"
+          value="100"
+          style="font-size:16px; padding:10px; border-radius:4px;
+                 width:100%; border:1px solid #ffffff;"
+        />
+      </div>
+    </div>
+
+    <!-- Row C: Max Dimensions -->
+    <div class="form-row" style="display:flex; flex-wrap:wrap; gap:20px; margin-top:20px;">
+      <div style="flex:1; min-width:250px;">
+        <label for="logo_max_width" style="font-size:18px; color:#ffffff;">
+          Logo Max Width (px)
+        </label>
+        <input
+          type="number"
+          id="logo_max_width"
+          name="logo_max_width"
+          required
+          aria-required="true"
+          min="1"
+          value="200"
+          style="font-size:16px; padding:10px; border-radius:4px;
+                 width:100%; border:1px solid #ffffff;"
+        />
+      </div>
+      <div style="flex:1; min-width:250px;">
+        <label for="product_max_height" style="font-size:18px; color:#ffffff;">
+          Product Max Height (px)
+        </label>
+        <input
+          type="number"
+          id="product_max_height"
+          name="product_max_height"
+          required
+          aria-required="true"
+          min="1"
+          value="500"
+          style="font-size:16px; padding:10px; border-radius:4px;
+                 width:100%; border:1px solid #ffffff;"
+        />
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Section 5: Preview ===== -->
+  <div class="module" style="margin-bottom:40px;">
+    <h2 class="module__subtitle" style="font-size:24px; font-weight:600; color:#ffffff;">
+      5. Preview
+    </h2>
+    <button
+      type="button"
+      name="generate_preview"
+      style="font-size:16px; padding:10px 20px;
+             background:rgba(0,0,0,0.7); color:white; border-radius:4px;"
+    >
+      Generate Preview
+    </button>
+  </div>
+
+  <!-- ===== Section 6: Process Product Images ===== -->
+  <div class="module" style="margin-bottom:40px;">
+    <h2 class="module__subtitle" style="font-size:24px; font-weight:600; color:#ffffff;">
+      6. Process Product Images
+    </h2>
+    <p style="font-size:16px; color:#ffffff; margin-bottom:8px;">
+      Upload a ZIP folder of product images:
+    </p>
+    <input
+      type="file"
+      name="images_zip"
+      accept=".zip"
+      required
+      aria-required="true"
+      style="font-size:16px; padding:10px; border-radius:4px;
+             width:100%; border:1px solid #ffffff;"
+    />
+    <button
+      type="submit"
+      name="process"
+      style="font-size:16px; padding:10px 20px;
+             background:#4e738d; color:white; border-radius:4px; margin-top:15px;"
+    >
+      Process Images
+    </button>
+  </div>
+
+</form>
+{% endblock %}

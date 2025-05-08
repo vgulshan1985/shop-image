@@ -1,0 +1,66 @@
+{# templates/core/manufacturer_edit.html #}
+{% extends "admin/base.html" %}
+{% block title %}Edit {{ manufacturer.name }}{% endblock %}
+
+{% block content %}
+  <div class="module" style="margin:2em 0;">
+    <h1 class="module__title">Edit Manufacturer</h1>
+
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <div class="form-row">
+        <label for="name">Name:</label><br>
+        <input
+          type="text" id="name" name="name"
+          value="{{ manufacturer.name }}"
+          style="width:100%; padding:8px; margin-top:4px;"
+        >
+      </div>
+
+      <div class="form-row" style="margin-top:1em;">
+        <label>
+          <input
+            type="checkbox" name="status"
+            {% if manufacturer.status %}checked{% endif %}
+          >
+          Active
+        </label>
+      </div>
+
+      <div class="form-row" style="margin-top:1em;">
+        <label for="logo">Change Logo:</label><br>
+        <input type="file" id="logo" name="logo" accept="image/*"
+               style="margin-top:4px;">
+        <p class="help">Current:</p>
+        <img src="{{ manufacturer.logo.url }}" alt=""
+             style="width:80px; margin-top:4px;">
+      </div>
+
+      <div style="margin-top:1.5em;">
+        <button type="submit" class="button">Save Changes</button>
+        <a href="{% url 'logo_management' %}" class="button"
+           style="margin-left:1em; background:#777;">
+          Cancel
+        </a>
+      </div>
+    </form>
+
+    {# DELETE FORM #}
+    <form
+      method="post"
+      action="{% url 'manufacturer_delete' manufacturer.pk %}"
+      style="margin-top:1em;"
+      onsubmit="return confirm('Are you sure you want to delete this manufacturer?');"
+    >
+      {% csrf_token %}
+      <button
+        type="submit"
+        class="button"
+        style="background: #c00; color: white; margin-top: 0.5em;"
+      >
+        Delete Manufacturer
+      </button>
+    </form>
+  </div>
+{% endblock %}

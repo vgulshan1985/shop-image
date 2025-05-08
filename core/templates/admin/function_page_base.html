@@ -1,0 +1,26 @@
+{% extends "admin/base_site.html" %}
+
+{% block title %}Default title{% endblock %}
+
+{% block branding %}
+<h1 id="site-name">
+  <a href="{% url 'admin:index' %}">HeizungsDiscount24</a>
+</h1>
+{% endblock %}
+
+{% block maincont %}
+<div class="user-tools" style="display: flex; align-items: center;">
+  <span class="user-name" style="margin-right: 10px;">Welcome {{ user.get_username }},</span>
+
+  <!-- Logout Form with POST method -->
+  <form method="post" action="{% url 'admin:logout' %}" style="margin-right: 10px;">
+    {% csrf_token %}
+    <button type="submit" style="background: none; border: none; color: #94d2f6; cursor: pointer;">Log Out</button>
+  </form>
+
+  <a href="{% url 'admin:password_change' %}" style="margin-right: 10px;">Change Password</a>
+  <a href="{% url 'admin:index' %}">View Site</a>
+</div>
+
+
+{% endblock %}
