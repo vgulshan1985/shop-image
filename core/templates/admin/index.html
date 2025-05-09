@@ -1,6 +1,12 @@
 {% extends "admin/base_site.html" %}
 
 {% block content %}
+{% load static %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'custom_admin.css' %}">
+{% endblock %}
 
 <h1 style="color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
 Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;; font-size: 40px; ">Content Management</h1>
