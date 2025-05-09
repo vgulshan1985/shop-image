@@ -229,12 +229,19 @@ def main_processing(request):
         raw_base = os.path.join(extract_dir, entries[0])
     else:
         raw_base = extract_dir
+    default_logo_path = os.path.join(settings.MEDIA_ROOT, "1x1.png")  # make sure this file exists
+    manu_name = request.POST.get('manufacturer_dropdown', 'no image')
 
-    # 5) Lookup logo and verify it exists
-    manu_name = request.POST['manufacturer_dropdown']
-    m1        = Manufacturer.objects.get(name=manu_name)
-    rel       = str(m1.logo).lstrip('/')
-    logo_path = os.path.join(settings.MEDIA_ROOT, rel)
+    if manu_name == 'no image':
+        logo_path = default_logo_path
+    else:
+        try:
+            m1 = Manufacturer.objects.get(name=manu_name)
+            rel = str(m1.logo).lstrip('/')
+            logo_path = os.path.join(settings.MEDIA_ROOT, rel)
+        except Manufacturer.DoesNotExist:
+            logo_path = default_logo_path
+
     if not os.path.isfile(logo_path):
         # immediate bail with log
         log_dir = os.path.join(settings.MEDIA_ROOT, "error_logs")

@@ -25,12 +25,11 @@
       <select
         id="manufacturer_logo"
         name="manufacturer_dropdown"
-        required
         aria-required="true"
         style="margin-top:5px; font-size:16px; padding:8px; border-radius:4px;
                width:100%; border:1px solid #ffffff;"
       >
-        <option value="">-- Select a manufacturer --</option>
+        <option value="no image">-- Select a manufacturer --</option>
         {% for m in manufacturers %}
           <option value="{{ m.name }}">{{ m.name }}</option>
         {% endfor %}
