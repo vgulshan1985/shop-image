@@ -7,8 +7,34 @@ from django.core.files.storage import FileSystemStorage
 from django.conf import settings
 from .models import Manufacturer
 from PIL import Image
+import uuid
+import threading
+import traceback
 import time
+from django.http               import JsonResponse, HttpResponseBadRequest
+from django.views.decorators.csrf import csrf_exempt
+from django.core.cache         import cache
+from django.shortcuts          import redirect
+import uuid
+import threading
+import traceback
+from django.http      import JsonResponse, HttpResponseBadRequest
+from django.views.decorators.csrf import csrf_exempt
+from django.core.cache import cache
+import time
+from django.core.cache import cache
+import uuid
+from django.http import JsonResponse
+import uuid
+import threading
+import time
+from django.http import JsonResponse
+from django.core.cache import cache
+from django.http import JsonResponse
 import os
+from django.conf import settings
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
 import pandas as pd
 import os
 import shutil
@@ -20,8 +46,17 @@ import os
 import csv
 import zipfile
 import uuid
+from datetime import datetime
 from http.client import HTTPResponse
 from concurrent.futures import ThreadPoolExecutor
+from django.shortcuts import get_object_or_404, redirect
+from .models import Manufacturer
+
+def manufacturer_delete(request, pk):
+    if request.method == "POST" and request.user.is_staff:
+        m = get_object_or_404(Manufacturer, pk=pk)
+        m.delete()
+    return redirect("logo_management")
 
 def zip_directory(folder_path, output_zip_path):
     """
@@ -51,6 +86,12 @@ from django.utils import timezone
 # ─── Local app ─────────────────────────────────────────────────────────────────
 from .models import Manufacturer
 
+from django.http import FileResponse, Http404
+from django.conf import settings
+import os
+from django.http import FileResponse, Http404
+from django.conf import settings
+import os
 
 # Create your views here.
 
@@ -148,6 +189,103 @@ def shop_image_generation(request):
         # …any other context…
     })
 
+
+def sample_processing(request):
+    # fetch and validate the uploaded sample
+    sample = request.FILES.get("sample_prod_img")
+    if not sample:
+        # no file → back to form
+        return redirect("shop_image_generation")
+
+    # safe int parser for your config
+    def gi(name, default):
+        try:
+            return int(request.POST.get(name, default))
+        except (TypeError, ValueError):
+            return default
+
+    cfg = {
+        "canvas_width":       max(1, gi("canvas_width", 1000)),
+        "canvas_height":      max(1, gi("canvas_height", 1000)),
+        "logo_top_margin":    max(1, gi("logo_top_margin", 50)),
+        "logo_right_margin":  max(1, gi("logo_right_margin", 50)),
+        "logo_max_width":     max(1, gi("logo_max_width", 200)),
+        "product_left_margin":max(1, gi("product_left_margin", 50)),
+        "product_bottom_margin":max(1, gi("product_bottom_margin", 50)),
+        "product_max_height": max(1, gi("product_max_height", 500)),
+    }
+
+    # timestamp & build a safe filename
+    orig_name, ext = os.path.splitext(sample.name)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{orig_name}-{ts}{ext}"
+    samples_dir = os.path.join(settings.MEDIA_ROOT, "samples")
+    os.makedirs(samples_dir, exist_ok=True)
+
+    # save original sample
+    sample_path_rel = f"samples/{filename}"
+    sample_path_abs = default_storage.save(sample_path_rel, sample)
+
+    # figure out logo path (fallback to 1x1.png if missing)
+    manu = request.POST.get("manufacturer_dropdown")
+    if not manu:
+        return HttpResponseForbidden("Manufacturer must be selected.")
+    try:
+        m = Manufacturer.objects.get(name=manu)
+        logo_rel = str(m.logo)
+    except Manufacturer.DoesNotExist:
+        logo_rel = "1x1.png"
+    logo_abs = os.path.join(settings.MEDIA_ROOT, logo_rel)
+    if not os.path.isfile(logo_abs):
+        logo_abs = os.path.join(settings.MEDIA_ROOT, "1x1.png")
+
+    # merge them
+    # load images
+    prod = Image.open(os.path.join(settings.MEDIA_ROOT, sample_path_abs)).convert("RGBA")
+    logo = Image.open(logo_abs).convert("RGBA")
+    canvas = Image.new("RGBA",
+                       (cfg["canvas_width"], cfg["canvas_height"]),
+                       (255, 255, 255, 0))
+
+    # resize product
+    pr = prod.width / prod.height
+    ph = min(cfg["product_max_height"],
+             cfg["canvas_height"] - cfg["product_bottom_margin"])
+    pw = int(ph * pr)
+    prod_rs = prod.resize((pw, ph), Image.LANCZOS)
+
+    # resize logo
+    lr = logo.height / logo.width
+    lw = min(cfg["logo_max_width"],
+             cfg["canvas_width"] - cfg["logo_right_margin"])
+    lh = int(lw * lr)
+    logo_rs = logo.resize((lw, lh), Image.LANCZOS)
+
+    # compute positions
+    px = cfg["product_left_margin"]
+    py = cfg["canvas_height"] - cfg["product_bottom_margin"] - ph
+    lx = cfg["canvas_width"] - cfg["logo_right_margin"] - lw
+    ly = cfg["logo_top_margin"]
+
+    # paste and save final
+    canvas.paste(prod_rs, (px, py), prod_rs)
+    canvas.paste(logo_rs, (lx, ly), logo_rs)
+    final_name = f"{orig_name}-{ts}-final.jpg"
+    final_rel  = f"samples/{final_name}"
+    final_abs  = os.path.join(settings.MEDIA_ROOT, final_rel)
+    canvas.convert("RGB").save(final_abs, "JPEG", quality=95)
+    manufacturers = Manufacturer.objects.all()
+    # return the URL (you could JSON-ify this if you prefer)
+    url = settings.MEDIA_URL + final_rel
+    return render(
+        request,
+        'admin/shop_image_generation.html',  # or whatever your original page template is
+        {
+            'img': url,
+            'processed1': True,
+            "manufacturers": manufacturers,
+        }
+    )
 
 def main_processing(request):
     start = time.perf_counter()
@@ -287,7 +425,6 @@ def main_processing(request):
         else:
             for p in missing:
                 lf.write(f"Missing product file: {p}\n")
-
     # 9) Merge helper collects its own errors
     def merge_images(prod_p, logo_p, out_p, cfg):
         try:
@@ -405,12 +542,13 @@ def main_processing(request):
     elapsed = time.perf_counter() - start
     return render(
         request,
-        'admin/merge_progress.html',  # <-- your actual template file
+        'admin/shop_image_generation.html',  # or whatever your original page template is
         {
-            'zip_path': pc,  # or better yet, the URL to download
+            'zip_path': pc,
             'log_path': lp,
             'normal_path': lzp,
             'elapsed_time': f"{elapsed:.2f}s",
+            'processed': True,
         }
     )
     #target_zip

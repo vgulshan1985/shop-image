@@ -1,5 +1,4 @@
-{# templates/core/manufacturer_edit.html #}
-{% extends "admin/base.html" %}
+{% extends "admin/function_page_base.html" %}
 {% block title %}Edit {{ manufacturer.name }}{% endblock %}
 
 {% block content %}
@@ -33,7 +32,7 @@
         <input type="file" id="logo" name="logo" accept="image/*"
                style="margin-top:4px;">
         <p class="help">Current:</p>
-        <img src="{{ manufacturer.logo.url }}" alt=""
+        <img src="/media/{{ manufacturer.logo }}" alt=""
              style="width:80px; margin-top:4px;">
       </div>
 

@@ -24,4 +24,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', lambda request: redirect('admin/', permanent=False)),  # redirect homepage to /admin/
     path('', include('core.urls')),
+
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
