@@ -293,6 +293,44 @@ def main_processing(request):
         return redirect('shop_image_generation')
 
     ts = timezone.now().strftime("%Y%m%d_%H%M%S")
+    import os
+    from django.conf import settings  # make sure Django is configured before running
+
+    # list of sub-folders under MEDIA_ROOT to clean
+    folders = [
+        'error_logs',
+        'processed_imgs',
+        'raw_images',
+        'samples',
+        'spreadsheets',
+        'unprocessed_renamed_imgs',
+        'zips',
+    ]
+
+    for sub in folders:
+        dir_path = os.path.join(settings.MEDIA_ROOT, sub)
+        if not os.path.isdir(dir_path):
+            continue
+
+        # walk the directory tree and delete all files
+        for root, dirs, files in os.walk(dir_path):
+            for filename in files:
+                file_path = os.path.join(root, filename)
+                try:
+                    os.remove(file_path)
+                except Exception as e:
+                    # optional: log errors instead of crashing
+                    pass
+
+        # —if you also want to remove any empty sub-directories afterwards:
+        for root, dirs, _ in os.walk(dir_path, topdown=False):
+            for d in dirs:
+                dir_to_remove = os.path.join(root, d)
+                try:
+                    os.rmdir(dir_to_remove)
+                except OSError:
+                    # still not empty or permission issue
+                    pass
 
     # helper for safe int parsing:
     def get_int(field, default):
