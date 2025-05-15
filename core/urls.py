@@ -9,6 +9,7 @@ urlpatterns = [
     path('shop_image_generation/', views.shop_image_generation, name='shop_image_generation'),
     path('sample_processing/', views.sample_processing, name='sample_processing'),
     path('upload-logo/', views.logo_uploaded, name='logo_uploaded'),
+    path('combine-pdfs/', views.combine_pdfs, name='combine_pdfs'),
     path(
         "manufacturer/<int:pk>/delete/",
         views.manufacturer_delete,
@@ -30,4 +31,5 @@ urlpatterns = [
         views.pdf_to_jpg,
         name="pdf_to_jpg",
     ),
+    
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

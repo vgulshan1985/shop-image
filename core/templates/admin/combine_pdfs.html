@@ -1,14 +1,14 @@
 {% extends "admin/function_page_base.html" %}
 
-{% block title %}PDF to JPG Converter{% endblock %}
+{% block title %}Combine PDFs{% endblock %}
 
 {% block content %}
 <link rel="stylesheet" href="/static/custom_admin.css">
 
 <section class="module">
-    <h1 class="module__title">PDF to JPG Converter</h1>
-    <h2 class="module__subtitle">Upload ZIP with PDF files</h2>
-    <p class="helper-text">The ZIP should only contain PDF files. Each PDF will be converted to JPG images.</p>
+    <h1 class="module__title">PDF Combiner</h1>
+    <h2 class="module__subtitle">Add Cover PDF to Multiple PDFs</h2>
+    <p class="helper-text">Upload a cover PDF and a ZIP file containing PDFs. The cover will be added to the beginning of each PDF.</p>
 
     {% if deleted %}
     <div class="module" style="border-left: 4px solid #28a745; background-color: #f0fff0;">
@@ -20,9 +20,9 @@
     {% if processed %}
     <div class="module processing-results">
         <h2 class="module__subtitle">Processing Complete (Time Taken: {{ elapsed_time }})</h2>
-        <p>Successfully converted {{ pdf_count }} PDFs to JPGs.</p>
+        <p>Successfully combined {{ pdf_count }} PDFs with the cover.</p>
         <div class="button-group">
-            <a href="{{ zip_path }}" download><button type="button">Download Converted JPGs</button></a>
+            <a href="{{ zip_path }}" download><button type="button">Download Combined PDFs</button></a>
             <a href="{{ log_path }}" download><button type="button">Download Error Log</button></a>
             <a href="?delete_file={{ file_name }}"><button type="button" class="delete-btn">Delete Files</button></a>
         </div>
@@ -37,25 +37,27 @@
     </div>
     {% endif %}
 
-    <!-- Form to Upload ZIP -->
-    <form method="post" action="{% url 'pdf_to_jpg' %}" enctype="multipart/form-data">
+    <!-- Form to Upload Files -->
+    <form method="post" action="{% url 'combine_pdfs' %}" enctype="multipart/form-data">
         {% csrf_token %}
         
         <div class="form-group">
-            <label for="dpi" class="required">Image Quality (DPI):</label>
-            <input type="number" name="dpi" id="dpi" value="300" min="72" max="600" required />
-            <p class="helper-text">Higher DPI = better quality but larger file size (72-600)</p>
+            <label for="id_cover" class="required">Select Cover PDF</label>
+            <div class="drop-zone" id="cover-drop-zone">
+                <span class="drop-zone__prompt">Drop or click to select cover PDF</span>
+                <input type="file" name="cover_pdf" id="id_cover" class="drop-zone__input" accept=".pdf" required />
+            </div>
         </div>
         
         <div class="form-group">
             <label for="id_zip" class="required">Select ZIP file with PDFs</label>
-            <div class="drop-zone">
+            <div class="drop-zone" id="zip-drop-zone">
                 <span class="drop-zone__prompt">Drop or click to select ZIP file</span>
-                <input type="file" name="pdf_zip" id="id_zip" class="drop-zone__input" accept=".zip" required />
+                <input type="file" name="pdfs_zip" id="id_zip" class="drop-zone__input" accept=".zip" required />
             </div>
         </div>
 
-        <button type="submit" name="process" class="process-button">Convert PDFs to JPGs</button>
+        <button type="submit" name="process" class="process-button">Combine PDFs</button>
     </form>
 </section>
 

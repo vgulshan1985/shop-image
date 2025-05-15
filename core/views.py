@@ -116,6 +116,28 @@ def pdf_to_jpg(request):
     if not request.user.is_superuser:
         return HttpResponseForbidden("You are not authorized to access this page.")
 
+    # Check if we need to delete a previously processed file
+    if request.GET.get('delete_file'):
+        file_to_delete = request.GET.get('delete_file')
+        # Validate the filename to prevent directory traversal attacks
+        if os.path.basename(file_to_delete) == file_to_delete and not file_to_delete.startswith('.'):
+            try:
+                # Delete the ZIP file
+                zip_path = os.path.join(settings.MEDIA_ROOT, 'pdf_conversions', file_to_delete)
+                if os.path.exists(zip_path) and os.path.isfile(zip_path):
+                    os.remove(zip_path)
+
+                # Also delete the corresponding log file
+                log_name = file_to_delete.replace('converted_jpgs_', 'pdf_conversion_')
+                log_name = log_name.replace('.zip', '.log')
+                log_path = os.path.join(settings.MEDIA_ROOT, 'pdf_conversion_logs', log_name)
+                if os.path.exists(log_path) and os.path.isfile(log_path):
+                    os.remove(log_path)
+
+                context['deleted'] = True
+            except Exception as e:
+                logger.error(f"Error deleting file {file_to_delete}: {str(e)}")
+
     if request.method == 'POST':
         start_time = time.time()
 
@@ -211,6 +233,8 @@ def pdf_to_jpg(request):
             context['elapsed_time'] = elapsed_time_str
             context['zip_path'] = f'/media/pdf_conversions/{output_zip_name}'
             context['log_path'] = f'/media/pdf_conversion_logs/pdf_conversion_{timestamp}.log'
+            context['file_name'] = output_zip_name  # Store filename for deletion
+            context['pdf_count'] = len(pdf_files)
 
             logger.info(f"Processing complete. Time taken: {elapsed_time_str}")
 
@@ -229,7 +253,245 @@ def pdf_to_jpg(request):
             # Remove file handler
             logger.removeHandler(file_handler)
 
+    # Clean up old files (older than 1 hour)
+    try:
+        cleanup_pdf_conversion_files()
+    except Exception as e:
+        logger.error(f"Error during cleanup: {str(e)}")
+
     return render(request, 'admin/pdf_to_jpg.html', context)
+
+def cleanup_pdf_conversion_files():
+    """Clean up PDF conversion files older than 1 hour"""
+    now = time.time()
+    one_hour_ago = now - 3600  # 1 hour in seconds
+
+    # Clean up PDF conversions
+    conversions_dir = os.path.join(settings.MEDIA_ROOT, 'pdf_conversions')
+    if os.path.exists(conversions_dir):
+        for filename in os.listdir(conversions_dir):
+            file_path = os.path.join(conversions_dir, filename)
+            if os.path.isfile(file_path):
+                # Check if file is older than 1 hour
+                if os.path.getmtime(file_path) < one_hour_ago:
+                    try:
+                        os.remove(file_path)
+                        logger.info(f"Deleted old file: {file_path}")
+                    except Exception as e:
+                        logger.error(f"Error deleting {file_path}: {str(e)}")
+
+    # Clean up logs
+    logs_dir = os.path.join(settings.MEDIA_ROOT, 'pdf_conversion_logs')
+    if os.path.exists(logs_dir):
+        for filename in os.listdir(logs_dir):
+            file_path = os.path.join(logs_dir, filename)
+            if os.path.isfile(file_path):
+                # Check if file is older than 1 hour
+                if os.path.getmtime(file_path) < one_hour_ago:
+                    try:
+                        os.remove(file_path)
+                        logger.info(f"Deleted old log: {file_path}")
+                    except Exception as e:
+                        logger.error(f"Error deleting {file_path}: {str(e)}")
+
+def combine_pdfs(request):
+    context = {}
+
+    if not request.user.is_superuser:
+        return HttpResponseForbidden("You are not authorized to access this page.")
+
+    # Check if we need to delete a previously processed file
+    if request.GET.get('delete_file'):
+        file_to_delete = request.GET.get('delete_file')
+        # Validate the filename to prevent directory traversal attacks
+        if os.path.basename(file_to_delete) == file_to_delete and not file_to_delete.startswith('.'):
+            try:
+                # Delete the ZIP file
+                zip_path = os.path.join(settings.MEDIA_ROOT, 'pdf_combinations', file_to_delete)
+                if os.path.exists(zip_path) and os.path.isfile(zip_path):
+                    os.remove(zip_path)
+
+                # Also delete the corresponding log file
+                log_name = file_to_delete.replace('combined_pdfs_', 'pdf_combination_')
+                log_name = log_name.replace('.zip', '.log')
+                log_path = os.path.join(settings.MEDIA_ROOT, 'pdf_combination_logs', log_name)
+                if os.path.exists(log_path) and os.path.isfile(log_path):
+                    os.remove(log_path)
+
+                context['deleted'] = True
+            except Exception as e:
+                logger.error(f"Error deleting file {file_to_delete}: {str(e)}")
+
+    if request.method == 'POST':
+        start_time = time.time()
+
+        # Get the uploaded files
+        cover_pdf = request.FILES.get('cover_pdf')
+        pdfs_zip = request.FILES.get('pdfs_zip')
+
+        if not cover_pdf:
+            context['error'] = "No cover PDF uploaded"
+            return render(request, 'admin/combine_pdfs.html', context)
+
+        if not pdfs_zip:
+            context['error'] = "No ZIP file uploaded"
+            return render(request, 'admin/combine_pdfs.html', context)
+
+        # Create temp directories
+        temp_dir = tempfile.mkdtemp()
+        cover_path = os.path.join(temp_dir, 'cover.pdf')
+        extract_dir = os.path.join(temp_dir, 'pdfs')
+        output_dir = os.path.join(temp_dir, 'combined')
+        os.makedirs(extract_dir, exist_ok=True)
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Create log file
+        log_path = os.path.join(settings.MEDIA_ROOT, 'pdf_combination_logs')
+        os.makedirs(log_path, exist_ok=True)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        log_file = os.path.join(log_path, f'pdf_combination_{timestamp}.log')
+
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setLevel(logging.INFO)
+        logger.addHandler(file_handler)
+
+        try:
+            # Save cover PDF
+            with open(cover_path, 'wb') as f:
+                for chunk in cover_pdf.chunks():
+                    f.write(chunk)
+
+            logger.info(f"Saved cover PDF: {cover_path}")
+
+            # Extract ZIP
+            with zipfile.ZipFile(pdfs_zip, 'r') as zip_ref:
+                zip_ref.extractall(extract_dir)
+
+            # Process PDFs
+            pdf_files = [f for f in os.listdir(extract_dir) if f.lower().endswith('.pdf')]
+
+            if not pdf_files:
+                logger.error("No PDF files found in the ZIP")
+                context['error'] = "No PDF files found in the ZIP"
+                return render(request, 'admin/combine_pdfs.html', context)
+
+            logger.info(f"Found {len(pdf_files)} PDF files to process")
+
+            # Import PyPDF2 for PDF manipulation
+            try:
+                from PyPDF2 import PdfMerger
+            except ImportError:
+                logger.error("PyPDF2 library not installed. Please install it with: pip install PyPDF2")
+                context['error'] = "PyPDF2 library not installed. Please contact the administrator."
+                return render(request, 'admin/combine_pdfs.html', context)
+
+            # Combine each PDF with the cover
+            for pdf_file in pdf_files:
+                pdf_path = os.path.join(extract_dir, pdf_file)
+                output_path = os.path.join(output_dir, pdf_file)
+
+                logger.info(f"Combining cover with {pdf_file}")
+
+                try:
+                    merger = PdfMerger()
+
+                    # Add cover PDF
+                    merger.append(cover_path)
+
+                    # Add content PDF
+                    merger.append(pdf_path)
+
+                    # Write to output file
+                    with open(output_path, 'wb') as f:
+                        merger.write(f)
+
+                    merger.close()
+                    logger.info(f"Created combined PDF: {output_path}")
+
+                except Exception as e:
+                    logger.error(f"Error combining {pdf_file}: {str(e)}")
+
+            # Create output ZIP
+            output_zip_name = f'combined_pdfs_{timestamp}.zip'
+            output_zip_path = os.path.join(settings.MEDIA_ROOT, 'pdf_combinations', output_zip_name)
+            os.makedirs(os.path.dirname(output_zip_path), exist_ok=True)
+
+            with zipfile.ZipFile(output_zip_path, 'w') as zipf:
+                for root, dirs, files in os.walk(output_dir):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        arcname = os.path.relpath(file_path, output_dir)
+                        zipf.write(file_path, arcname)
+
+            # Calculate elapsed time
+            elapsed_time = time.time() - start_time
+            elapsed_time_str = f"{elapsed_time:.2f} seconds"
+
+            # Set context for template
+            context['processed'] = True
+            context['elapsed_time'] = elapsed_time_str
+            context['zip_path'] = f'/media/pdf_combinations/{output_zip_name}'
+            context['log_path'] = f'/media/pdf_combination_logs/pdf_combination_{timestamp}.log'
+            context['file_name'] = output_zip_name  # Store filename for deletion
+            context['pdf_count'] = len(pdf_files)
+
+            logger.info(f"Processing complete. Time taken: {elapsed_time_str}")
+
+        except Exception as e:
+            logger.error(f"Error processing files: {str(e)}")
+            context['error'] = f"Error processing files: {str(e)}"
+
+        finally:
+            # Clean up temp files
+            try:
+                import shutil
+                shutil.rmtree(temp_dir)
+            except Exception as e:
+                logger.error(f"Error cleaning up temp files: {str(e)}")
+
+            # Remove file handler
+            logger.removeHandler(file_handler)
+
+    # Clean up old files (older than 1 hour)
+    try:
+        cleanup_pdf_combination_files()
+    except Exception as e:
+        logger.error(f"Error during cleanup: {str(e)}")
+
+    return render(request, 'admin/combine_pdfs.html', context)
+
+def cleanup_pdf_combination_files():
+    """Clean up PDF combination files older than 1 hour"""
+    now = time.time()
+    one_hour_ago = now - 3600  # 1 hour in seconds
+
+    # Clean up PDF combinations
+    combinations_dir = os.path.join(settings.MEDIA_ROOT, 'pdf_combinations')
+    if os.path.exists(combinations_dir):
+        for filename in os.listdir(combinations_dir):
+            file_path = os.path.join(combinations_dir, filename)
+            if os.path.isfile(file_path):
+                # Check if file is older than 1 hour
+                if os.path.getmtime(file_path) < one_hour_ago:
+                    try:
+                        os.remove(file_path)
+                        logger.info(f"Deleted old file: {file_path}")
+                    except Exception as e:
+                        logger.error(f"Error deleting {file_path}: {str(e)}")
+
+    # Clean up logs
+    logs_dir = os.path.join(settings.MEDIA_ROOT, 'pdf_combination_logs')
+    if os.path.exists(logs_dir):
+        for filename in os.listdir(logs_dir):
+            file_path = os.path.join(logs_dir, filename)
+            if os.path.isfile(file_path):
+                # Check if file is older than 1 hour
+                if os.path.getmtime(file_path) < one_hour_ago:
+                    try:
+                        os.remove(file_path)
+                        logger.info(f"Deleted old log: {file_path}")
+                    except Exception as e:
+                        logger.error(f"Error deleting {file_path}: {str(e)}")
 
 def manufacturer_edit(request, pk):
     m = get_object_or_404(Manufacturer, pk=pk)
