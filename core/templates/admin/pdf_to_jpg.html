@@ -1,0 +1,82 @@
+{% extends "admin/function_page_base.html" %}
+
+{% block title %}PDF to JPG Converter{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="/static/custom_admin.css">
+
+<section class="module">
+    <h1 class="module__title">PDF to JPG Converter</h1>
+    <h2 class="module__subtitle">Upload ZIP with PDF files</h2>
+    <p class="helper-text">The ZIP should only contain PDF files. Each PDF will be converted to JPG images.</p>
+
+    {% if processed %}
+    <div class="module processing-results">
+        <h2 class="module__subtitle">Processing Complete (Time Taken: {{ elapsed_time }})</h2>
+        <a href="{{ zip_path }}" download><button type="button">Download Converted JPGs</button></a>
+        <a href="{{ log_path }}" download><button type="button">Download Error Log</button></a>
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div class="module" style="border-left: 4px solid #CB2427; background-color: #fff0f0;">
+        <h2 class="module__subtitle">Error</h2>
+        <p>{{ error }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Form to Upload ZIP -->
+    <form method="post" action="{% url 'pdf_to_jpg' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label for="dpi" class="required">Image Quality (DPI):</label>
+            <input type="number" name="dpi" id="dpi" value="300" min="72" max="600" required />
+            <p class="helper-text">Higher DPI = better quality but larger file size (72-600)</p>
+        </div>
+        
+        <div class="form-group">
+            <label for="id_zip" class="required">Select ZIP file with PDFs</label>
+            <div class="drop-zone">
+                <span>Drop or click to select ZIP file</span>
+                <input type="file" name="pdf_zip" id="id_zip" accept=".zip" required />
+                <p id="zip-file-name" class="file-name"></p>
+            </div>
+        </div>
+
+        <button type="submit" class="button">Convert PDFs to JPGs</button>
+    </form>
+</section>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const dropZone = document.querySelector('.drop-zone');
+        const fileInput = document.getElementById('id_zip');
+        const fileNameDisplay = document.getElementById('zip-file-name');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, event => {
+                event.preventDefault();
+                event.stopPropagation();
+            });
+        });
+        
+        dropZone.addEventListener('drop', event => {
+            fileInput.files = event.dataTransfer.files;
+            if (fileInput.files.length) {
+                fileNameDisplay.textContent = `Selected: ${fileInput.files[0].name}`;
+                dropZone.classList.add('has-file');
+            }
+        });
+        
+        fileInput.addEventListener('change', () => { 
+            if (fileInput.files.length) {
+                fileNameDisplay.textContent = `Selected: ${fileInput.files[0].name}`;
+                dropZone.classList.add('has-file');
+            }
+        });
+        
+        dropZone.addEventListener('click', () => fileInput.click());
+    });
+</script>
+{% endblock %}

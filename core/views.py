@@ -51,6 +51,21 @@ from http.client import HTTPResponse
 from concurrent.futures import ThreadPoolExecutor
 from django.shortcuts import get_object_or_404, redirect
 from .models import Manufacturer
+import os
+import time
+import zipfile
+import tempfile
+import logging
+from datetime import datetime
+from pathlib import Path
+from pdf2image import convert_from_path
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 def manufacturer_delete(request, pk):
     if request.method == "POST" and request.user.is_staff:
@@ -94,6 +109,127 @@ from django.conf import settings
 import os
 
 # Create your views here.
+
+def pdf_to_jpg(request):
+    context = {}
+
+    if not request.user.is_superuser:
+        return HttpResponseForbidden("You are not authorized to access this page.")
+
+    if request.method == 'POST':
+        start_time = time.time()
+
+        # Get the uploaded ZIP file
+        pdf_zip = request.FILES.get('pdf_zip')
+        dpi = int(request.POST.get('dpi', 300))
+
+        # Validate DPI
+        if dpi < 72:
+            dpi = 72
+        elif dpi > 600:
+            dpi = 600
+
+        if not pdf_zip:
+            context['error'] = "No ZIP file uploaded"
+            return render(request, 'admin/pdf_to_jpg.html', context)
+
+        # Create temp directories
+        temp_dir = tempfile.mkdtemp()
+        extract_dir = os.path.join(temp_dir, 'pdfs')
+        output_dir = os.path.join(temp_dir, 'jpgs')
+        os.makedirs(extract_dir, exist_ok=True)
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Create log file
+        log_path = os.path.join(settings.MEDIA_ROOT, 'pdf_conversion_logs')
+        os.makedirs(log_path, exist_ok=True)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        log_file = os.path.join(log_path, f'pdf_conversion_{timestamp}.log')
+
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setLevel(logging.INFO)
+        logger.addHandler(file_handler)
+
+        try:
+            # Extract ZIP
+            with zipfile.ZipFile(pdf_zip, 'r') as zip_ref:
+                zip_ref.extractall(extract_dir)
+
+            # Process PDFs
+            pdf_files = [f for f in os.listdir(extract_dir) if f.lower().endswith('.pdf')]
+
+            if not pdf_files:
+                logger.error("No PDF files found in the ZIP")
+                context['error'] = "No PDF files found in the ZIP"
+                return render(request, 'admin/pdf_to_jpg.html', context)
+
+            logger.info(f"Found {len(pdf_files)} PDF files to process")
+
+            # Convert each PDF to JPG
+            for pdf_file in pdf_files:
+                pdf_path = os.path.join(extract_dir, pdf_file)
+                output_folder = os.path.join(output_dir, os.path.splitext(pdf_file)[0])
+                os.makedirs(output_folder, exist_ok=True)
+
+                logger.info(f"Converting {pdf_file} to JPG")
+
+                try:
+                    # Convert PDF to images
+                    images = convert_from_path(
+                        pdf_path,
+                        dpi=dpi,
+                        thread_count=4  # Use multiple threads for better performance
+                    )
+
+                    # Save each page as JPG
+                    for i, image in enumerate(images):
+                        image_path = os.path.join(output_folder, f'page_{i+1}.jpg')
+                        image.save(image_path, 'JPEG', quality=95)
+                        logger.info(f"Saved {image_path}")
+
+                except Exception as e:
+                    logger.error(f"Error converting {pdf_file}: {str(e)}")
+
+            # Create output ZIP
+            output_zip_name = f'converted_jpgs_{timestamp}.zip'
+            output_zip_path = os.path.join(settings.MEDIA_ROOT, 'pdf_conversions', output_zip_name)
+            os.makedirs(os.path.dirname(output_zip_path), exist_ok=True)
+
+            with zipfile.ZipFile(output_zip_path, 'w') as zipf:
+                for root, dirs, files in os.walk(output_dir):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        arcname = os.path.relpath(file_path, output_dir)
+                        zipf.write(file_path, arcname)
+
+            # Calculate elapsed time
+            elapsed_time = time.time() - start_time
+            elapsed_time_str = f"{elapsed_time:.2f} seconds"
+
+            # Set context for template
+            context['processed'] = True
+            context['elapsed_time'] = elapsed_time_str
+            context['zip_path'] = f'/media/pdf_conversions/{output_zip_name}'
+            context['log_path'] = f'/media/pdf_conversion_logs/pdf_conversion_{timestamp}.log'
+
+            logger.info(f"Processing complete. Time taken: {elapsed_time_str}")
+
+        except Exception as e:
+            logger.error(f"Error processing ZIP: {str(e)}")
+            context['error'] = f"Error processing ZIP: {str(e)}"
+
+        finally:
+            # Clean up temp files
+            try:
+                import shutil
+                shutil.rmtree(temp_dir)
+            except Exception as e:
+                logger.error(f"Error cleaning up temp files: {str(e)}")
+
+            # Remove file handler
+            logger.removeHandler(file_handler)
+
+    return render(request, 'admin/pdf_to_jpg.html', context)
 
 def manufacturer_edit(request, pk):
     m = get_object_or_404(Manufacturer, pk=pk)
@@ -530,7 +666,7 @@ def main_processing(request):
     input_dir = os.path.join(settings.MEDIA_ROOT, f"raw_images/{saved_zip_name}/RAW IMAGES")
     output_dir = os.path.join(settings.MEDIA_ROOT, f"unprocessed_renamed_imgs/{saved_zip_name}")
 
-    # 3. Create destination (you’ll need write perms here)
+    # 3. Create destination (you'll need write perms here)
     os.makedirs(output_dir, exist_ok=True)
 
 
@@ -591,4 +727,3 @@ def main_processing(request):
     )
     #target_zip
     #logpath
-

@@ -24,5 +24,10 @@ urlpatterns = [
         views.main_processing,
         name="main_processing",
     ),
-
+    # Add the new PDF to JPG converter URL
+    path(
+        "pdf-to-jpg/",
+        views.pdf_to_jpg,
+        name="pdf_to_jpg",
+    ),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
