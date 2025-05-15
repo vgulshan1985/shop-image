@@ -3,68 +3,83 @@
 {% block title %}HeizungsDiscount24 - Logo Management{% endblock %}
 
 {% block content %}
-    <!-- Section 1: Logo Management -->
-    <div class="module" style="margin-bottom: 40px;">
-        <h1 class="module__title" style="font-size: 32px; font-weight: bold; color: #4e738d;">Logo Management</h1>
-        <h2 class="module__subtitle" style="font-size: 24px; font-weight: 600; color: #ffffff;">Upload manufacturer logo</h2>
-        <p style="font-size: 16px; color: #ffffff; line-height: 1.5;">Select logo file (PNG with transparent background recommended)</p>
+<link rel="stylesheet" href="/static/custom_admin.css">
 
-        <!-- Form to Upload Logo -->
-        <form method="post" action="{% url 'logo_uploaded' %}" enctype="multipart/form-data">
+<!-- Section 1: Logo Management -->
+<section class="module">
+    <h1 class="module__title">Logo Management</h1>
+    <h2 class="module__subtitle">Upload manufacturer logo</h2>
+    <p class="helper-text">Select logo file (PNG with transparent background recommended)</p>
 
-
-            {% csrf_token %}
-            <div style="flex: 1; min-width: 250px;">
-                <label for="product_left_margin" style="font-size: 18px; color: #ffffff; ">Manufacturer Name:</label>
-                <br>
-
-                <input placeholder="Manufacturer" name="manufacturer_name" type="text" id="product_max_height" style="font-size: 16px; padding: 10px; border-radius: 4px; width: 100%; border: 1px solid #ffffff; width: 190px; margin-top: 10px;" />
-
+    <!-- Form to Upload Logo -->
+    <form method="post" action="{% url 'logo_uploaded' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="manufacturer_name">Manufacturer Name:</label>
+            <input placeholder="Manufacturer" name="manufacturer_name" type="text" id="manufacturer_name" required />
+        </div>
+        
+        <div class="form-group">
+            <label for="id_logo" class="required">Select logo file</label>
+            <div class="drop-zone">
+                <span>Drop or click to select logo file</span>
+                <input type="file" name="manufacturer_logo" id="id_logo" accept="image/*" required />
+                <p id="logo-file-name" class="file-name"></p>
             </div>
-            <br>
-            <div class="form-row">
-                <label for="id_logo" class="required" style="font-size: 18px; color: #ffffff;">Select logo file</label>
-                <br>
+        </div>
 
-                <input type="file" name="manufacturer_logo" id="id_logo" accept="image/*" required style="font-size: 16px; padding: 10px; border-radius: 4px; margin-top: 8px; border: 1px solid #ccc;">
+        <button type="submit" class="button">Upload</button>
+    </form>
+</section>
 
-            </div>
-
-            <button type="submit" class="button" style="font-size: 16px; padding: 10px 20px; background-color: #4e738d; color: white; border-radius: 4px; margin-top: 15px;">Upload</button>
-
-        </form>
-    </div>
-
-   <div class="module">
-    <h2 class="module__subtitle"
-        style="font-size:24px; font-weight:600; color:#ffffff; margin-bottom:20px;">
-      Manufacturer logos listing
-    </h2>
+<section class="module">
+    <h2 class="module__subtitle">Manufacturer logos listing</h2>
 
     {% if manufacturers %}
-      <ul class="list" style="list-style:none; padding-left:0;">
-        {% for manufacturer in manufacturers %}
-          <li class="list-item"
-              style="display:flex; align-items:center; margin-bottom:15px;">
-            <!-- ImageField.url gives you the proper media URL -->
-            <img src="/media/{{ manufacturer.logo }}"
-                 alt="{{ manufacturer.logo }}"
-                 style="width:100px; margin-right:15px;">
-            <span style="font-size:18px; color:#fff;">
-              {{ manufacturer.name }}
-            </span>
-              <a style="margin-left: 100px;" href="{% url 'manufacturer_edit' manufacturer.pk %}">Edit</a>
-
-          </li>
-        {% endfor %}
-      </ul>
+        <ul class="list">
+            {% for manufacturer in manufacturers %}
+                <li class="list-item">
+                    <img src="/media/{{ manufacturer.logo }}" alt="{{ manufacturer.logo }}">
+                    <span>{{ manufacturer.name }}</span>
+                    <a href="{% url 'manufacturer_edit' manufacturer.pk %}">Edit</a>
+                </li>
+            {% endfor %}
+        </ul>
     {% else %}
-      <p style="color:red; font-weight:bold; font-size:18px; text-align:center;">
-        X No logos uploaded yet X
-      </p>
-      <p style="font-size:16px; color:#6a6a6a; text-align:center;">
-        Please upload manufacturer logos above
-      </p>
+        <p class="error-message">X No logos uploaded yet X</p>
+        <p class="helper-text">Please upload manufacturer logos above</p>
     {% endif %}
-  </div>
+</section>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const dropZone = document.querySelector('.drop-zone');
+        const fileInput = document.getElementById('id_logo');
+        const fileNameDisplay = document.getElementById('logo-file-name');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, event => {
+                event.preventDefault();
+                event.stopPropagation();
+            });
+        });
+        
+        dropZone.addEventListener('drop', event => {
+            fileInput.files = event.dataTransfer.files;
+            if (fileInput.files.length) {
+                fileNameDisplay.textContent = `Selected: ${fileInput.files[0].name}`;
+                dropZone.classList.add('has-file');
+            }
+        });
+        
+        fileInput.addEventListener('change', () => { 
+            if (fileInput.files.length) {
+                fileNameDisplay.textContent = `Selected: ${fileInput.files[0].name}`;
+                dropZone.classList.add('has-file');
+            }
+        });
+        
+        dropZone.addEventListener('click', () => fileInput.click());
+    });
+</script>
 {% endblock %}

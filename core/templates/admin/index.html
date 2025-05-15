@@ -1,35 +1,25 @@
 {% extends "admin/base_site.html" %}
-
-{% block content %}
 {% load static %}
 
-{% block extrastyle %}
-  {{ block.super }}
-  <link rel="stylesheet" href="{% static 'custom_admin.css' %}">
-{% endblock %}
+{% block content %}
+<!-- Try with a direct link -->
+<link rel="stylesheet" type="text/css" href="/static/custom_admin.css">
 
-<h1 style="color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;; font-size: 40px; ">Content Management</h1>
-<br>
-<!--<p> </p>-->
-<!--<br>-->
-<a href="{% url 'logo_management' %}">
-  <button style="padding: 10px 20px; background-color: #4e738d; color: white; border: none; border-radius: 10px; font-size: 16px; cursor: pointer;">
-    Logo Management
-  </button>
-</a>
-
-
-<br>
-<p> </p>
-<br>
-
-<a href="{% url 'shop_image_generation' %}">
-  <button style="padding: 10px 20px; background-color: #4e738d; color: white; border: none; border-radius: 10px; font-size: 16px; cursor: pointer;">
-    Shop Image Generation
-  </button>
-</a>
-
-
-
+<div class="module">
+  <h1 class="module__title">Content Management</h1>
+  
+  <div class="button-group">
+    <a href="{% url 'logo_management' %}">
+      <button type="button">
+        Logo Management
+      </button>
+    </a>
+    
+    <a href="{% url 'shop_image_generation' %}">
+      <button type="button">
+        Shop Image Generation
+      </button>
+    </a>
+  </div>
+</div>
 {% endblock %}
